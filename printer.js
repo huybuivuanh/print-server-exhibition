@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const {
   ThermalPrinter,
   PrinterTypes,
@@ -154,6 +156,28 @@ function printSectionHeader(printer, title) {
 
 function isPaid(order) {
   return order.orderItems.every((item) => item.paid);
+}
+
+const ORDER_NUMBER_FILE = path.join(__dirname, "order_number.txt");
+
+function readOrderNumber() {
+  try {
+    const num = parseInt(fs.readFileSync(ORDER_NUMBER_FILE, "utf8").trim(), 10);
+    return Number.isNaN(num) ? 1 : num;
+  } catch (error) {
+    return 1;
+  }
+}
+
+function writeOrderNumber(orderNumber) {
+  fs.writeFileSync(ORDER_NUMBER_FILE, String(orderNumber), "utf8");
+}
+
+function printOrderNumber(printer, orderNumber) {
+  printer.alignCenter();
+  printer.setTextSize(2, 2);
+  printer.bold(true);
+  printer.println(`Order #${orderNumber}`);
 }
 
 function printRestaurantHeader(printer, order) {
@@ -364,26 +388,8 @@ function printTotals(printer, order) {
     getOrderTotals(order);
 
   printer.bold(false);
-  printer.println(`Subtotal: $${subtotal.toFixed(2)}`);
-  if (discountAmount > 0) {
-    const discount = order.taxBreakDown?.discount;
-    const discountLabel =
-      discount?.discountType === "Amount"
-        ? `$${discount?.discountValue.toFixed(2)}`
-        : `${discount?.discountValue.toFixed(0)}%`;
-
-    printer.println(
-      `Discount (${discountLabel}): -$${discountAmount.toFixed(2)}`,
-    );
-    printer.println(
-      `Taxable Subtotal: $${discount?.taxableSubtotal?.toFixed(2)}`,
-    );
-  }
-  printer.println(`PST (6%): $${pst.toFixed(2)}`);
-  printer.println(`GST (5%): $${gst.toFixed(2)}`);
-  printer.println(`----------------------------`);
   printer.setTextQuadArea();
-  printer.println(`TOTAL: $${grandTotal.toFixed(2)}`);
+  printer.println(`TOTAL: $${subtotal.toFixed(2)}`);
   printer.setTextNormal();
   printer.newLine();
 }
@@ -424,24 +430,29 @@ async function printOrder(order, kitchen) {
     );
     const groupedSections = groupItemsByKitchen(processedItems);
 
+    const orderNumber = readOrderNumber();
+
+    printOrderNumber(printer, orderNumber);
+    printer.cut();
+    printOrderNumber(printer, orderNumber);
+    printer.newLine();
     printRestaurantHeader(printer, order);
-    printOrderTypeHeader(printer, order, kitchen);
-    printPreorderInfo(printer, order, kitchen);
-    printOrderDetails(printer, order);
+    printer.newLine();
+    printer.newLine();
     printOrderItems(printer, groupedSections);
     printTotals(printer, order);
-    printFooter(printer, order, kitchen);
-
     printer.cut();
 
     // Platform-specific printing
-    if (IS_WINDOWS) {
-      // Windows: Use USB printing via escpos-usb
-      return await printViaUSB(printer);
-    } else {
-      // Linux: Use direct interface
-      return await printViaDirectInterface(printer);
-    }
+    const result = IS_WINDOWS
+      ? // Windows: Use USB printing via escpos-usb
+        await printViaUSB(printer)
+      : // Linux: Use direct interface
+        await printViaDirectInterface(printer);
+
+    writeOrderNumber(orderNumber + 1);
+
+    return result;
   } catch (error) {
     console.error("Print error:", error);
     throw error;

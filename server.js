@@ -56,13 +56,7 @@ async function processQueue() {
 
     console.log("Printing order:", order.id);
 
-    if (order.orderType === CONFIG.ORDER_TYPES.TAKE_OUT) {
-      for (const lane of CONFIG.TAKEOUT_PRINT_LANES) {
-        await printOrder(order, lane);
-      }
-    } else {
-      await printOrder(order, "");
-    }
+    await printOrder(order, "");
 
     console.log("✅ Print completed for order:", order.id);
 
