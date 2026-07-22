@@ -438,7 +438,9 @@ async function printOrder(order, kitchen) {
     printer.newLine();
     printRestaurantHeader(printer, order);
     printer.newLine();
-    printer.newLine();
+    printer.setTextNormal();
+    printer.alignLeft();
+    printer.println("--------------------------------");
     printOrderItems(printer, groupedSections);
     printTotals(printer, order);
     printer.cut();
